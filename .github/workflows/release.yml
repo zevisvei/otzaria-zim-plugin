@@ -39,12 +39,26 @@ jobs:
 
       - name: Sync manifest version with tag
         shell: pwsh
+        env:
+          NEW_VERSION: ${{ steps.tag.outputs.version }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $manifestPath = 'manifest.json'
-          $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-          $manifest.version = '${{ steps.tag.outputs.version }}'
-          $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8
-          Get-Content $manifestPath
+          $content = Get-Content $manifestPath -Raw -Encoding UTF8
+          $pattern = '("version"\s*:\s*")[^"]+(")'
+          if ($content -notmatch $pattern) {
+            Write-Error "version field not found in $manifestPath"
+            exit 1
+          }
+          $new = [regex]::Replace($content, $pattern, "`${1}$($env:NEW_VERSION)`${2}", 1)
+          if ($new -eq $content) {
+            Write-Host "manifest.json already at version $env:NEW_VERSION"
+          } else {
+            # Write UTF-8 without BOM, preserve original line endings
+            [System.IO.File]::WriteAllText((Resolve-Path $manifestPath), $new, (New-Object System.Text.UTF8Encoding $false))
+            Write-Host "manifest.json version -> $env:NEW_VERSION"
+          }
+          Get-Content $manifestPath -Raw
 
       - name: Build plugin
         shell: pwsh

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.otzaria.zim-reader",
   "name": "קורא קבצי ZIM (Kiwix)",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "תוסף לקריאת קבצי ZIM (Kiwix) — ויקיפדיה offline, ויקיטקסט ועוד. מבוסס על libzim של פרויקט Kiwix.",
   "author": "האדם החושב",
   "homepage": "https://github.com/zevisvei/otzaria-zim-plugin",
