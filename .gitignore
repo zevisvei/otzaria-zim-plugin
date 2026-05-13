@@ -1,1 +1,3 @@
 kiwix-zim-reader.otzplugin
+.build-stage/
+*.zip

@@ -49,7 +49,7 @@ zip -r kiwix-zim-reader.otzplugin manifest.json index.html css/ js/ icon/ \
 
 קבצי ZIM ניתן להוריד מ-<https://library.kiwix.org>. לדוגמה:
 
-- ויקיפדיה עברית (גרסה מצומצמת ~1GB / מלאה ~6GB)
+- ויקיפדיה עברית (גרסה מצומצמת ~1GB / מלאה ~30GB)
 - ויקיטקסט עברית
 - פרויקט גוטנברג
 
