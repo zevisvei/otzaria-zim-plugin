@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>קורא ZIM</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <span class="title">קורא קבצי ZIM</span>
+      <span class="archive-name" id="archive-name"></span>
+    </header>
+
+    <div class="toolbar">
+      <label class="btn" for="zim-file">פתח קובץ ZIM…</label>
+      <input type="file" id="zim-file" accept=".zim,.zimaa,.zimab" />
+
+      <input type="search" id="search-box" placeholder="חיפוש בכותר…" disabled autocomplete="off" />
+      <button id="search-btn" disabled>חיפוש מלא</button>
+      <button id="home-btn" class="secondary" disabled>דף הבית</button>
+    </div>
+
+    <main>
+      <aside id="suggestions">
+        <div class="empty-state" id="suggestions-empty">הצעות יופיעו כאן</div>
+      </aside>
+      <section id="article-pane">
+        <div class="empty-state" id="welcome">
+          <div style="font-size:1.1rem;font-weight:700">לא נטען קובץ ZIM</div>
+          <div>בחר קובץ <code>.zim</code> כדי להתחיל. ניתן להוריד קבצי ZIM מ-<span dir="ltr">library.kiwix.org</span>.</div>
+        </div>
+        <iframe id="article-frame" sandbox="allow-same-origin allow-popups" style="display:none"></iframe>
+      </section>
+    </main>
+
+    <footer class="status" id="status"></footer>
+  </div>
+
+  <script src="js/libzim-wasm-source.js"></script>
+  <script src="js/libzim-wasm-data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
