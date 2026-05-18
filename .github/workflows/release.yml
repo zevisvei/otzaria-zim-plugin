@@ -150,15 +150,12 @@ jobs:
             Write-Error "Login request failed: $($_.Exception.Message)"; exit 1
           }
 
-          # 3) Verify admin session
+          # 3) Verify session (admin OR plugin owner — backend enforces ownership)
           $session = Invoke-RestMethod -Uri "$base/api/auth/session" -WebSession $sess -UseBasicParsing
           if (-not $session.user) {
             Write-Error 'Login failed: empty session (check OTZARIA_USER / OTZARIA_PASSWORD)'; exit 1
           }
-          if ($session.user.role -ne 'admin') {
-            Write-Error "User $($session.user.email) is not admin (role: $($session.user.role))"; exit 1
-          }
-          Write-Host "Logged in as $($session.user.email)"
+          Write-Host "Logged in as $($session.user.email) (role: $($session.user.role))"
 
           # 4) Fetch current plugin fields (admin edit endpoint)
           $editUrl = "$base/api/admin/plugins/$env:OTZARIA_PLUGIN_ID/edit"
