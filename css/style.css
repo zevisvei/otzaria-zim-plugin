@@ -1,6 +1,20 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* Color roles — defaults only; replaced at runtime by applyTheme() (index.html) */
+  --color-primary:    #6750A4;
+  --color-on-primary: #FFFFFF;
+  --color-secondary:    #625B71;
+  --color-on-secondary: #FFFFFF;
+  --color-surface:    #FFFBFE;
+  --color-on-surface: #1C1B1F;
+  --color-surface-container-highest: #E6E0E9;
+  --color-error:    #B3261E;
+  --color-on-error: #FFFFFF;
+  --color-outline:  #79747E;
+  --color-primary-subtle:   #6750A41F;
+  --color-secondary-subtle: #625B711F;
+  --color-scrim:            #00000066;
   --font-main:      'Frank Ruhl Libre', 'David', serif;
   --font-size-base: 18px;
   --line-height:    1.5;
@@ -8,14 +22,14 @@
   --radius-md:  14px;
   --radius-lg:  20px;
   --radius-pill: 999px;
-  --shadow-1: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-2: 0 6px 20px rgba(0,0,0,0.16);
+  --shadow-1: 0 1px 3px #0000001A, 0 1px 2px #0000000F;
+  --shadow-2: 0 6px 20px #00000029;
 }
 
 html, body { height: 100%; overflow: hidden; }
 
 /* -------- Touch support -------- */
-* { -webkit-tap-highlight-color: rgba(0,0,0,0.08); }
+* { -webkit-tap-highlight-color: var(--color-primary-subtle); }
 button, .btn, .suggestion, .toc-item, .archive-select, .toc-subhead {
   touch-action: manipulation;   /* remove 300ms tap delay */
 }
@@ -110,7 +124,7 @@ header .header-open:hover { filter: brightness(0.96); }
 .toolbar input[type="search"]:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-subtle, rgba(0,0,0,0.08));
+  box-shadow: 0 0 0 3px var(--color-primary-subtle);
 }
 
 .archive-select {
@@ -151,7 +165,7 @@ button.secondary {
   border: 1px solid var(--color-primary);
   box-shadow: none;
 }
-button.secondary:hover { background: var(--color-primary-subtle, rgba(0,0,0,0.05)); filter: none; }
+button.secondary:hover { background: var(--color-primary-subtle); filter: none; }
 
 .icon-btn { padding: 9px 12px; line-height: 1; font-size: 1.05rem; }
 .icon-btn[hidden] { display: none; }
@@ -220,7 +234,7 @@ main.with-sidebar { grid-template-columns: 320px 1fr; }  /* RTL: sidebar on the 
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--color-primary-subtle, rgba(0,0,0,0.06));
+  background: var(--color-primary-subtle);
   color: var(--color-on-surface);
   border: none;
   border-radius: 0;
@@ -231,7 +245,7 @@ main.with-sidebar { grid-template-columns: 320px 1fr; }  /* RTL: sidebar on the 
   opacity: 1;
   text-align: start;
 }
-.toc-subhead:hover { filter: none; background: var(--color-primary-subtle, rgba(0,0,0,0.10)); }
+.toc-subhead:hover { filter: none; background: var(--color-primary-subtle); }
 .toc-arrow { display: inline-block; font-size: 0.8rem; transition: transform 0.15s ease; }
 #toc-list {
   max-height: 42vh;
@@ -269,7 +283,7 @@ main.with-sidebar { grid-template-columns: 320px 1fr; }  /* RTL: sidebar on the 
 }
 .suggestion:hover {
   border-color: var(--color-primary);
-  background: var(--color-primary-subtle, rgba(0,0,0,0.04));
+  background: var(--color-primary-subtle);
 }
 .suggestion:active { transform: scale(0.99); }
 .suggestion > div:first-child {
@@ -308,7 +322,7 @@ main.with-sidebar { grid-template-columns: 320px 1fr; }  /* RTL: sidebar on the 
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 .toc-item:hover {
-  background: var(--color-primary-subtle, rgba(0,0,0,0.05));
+  background: var(--color-primary-subtle);
   border-inline-start-color: var(--color-primary);
   color: var(--color-primary);
 }
@@ -349,7 +363,7 @@ main.with-sidebar { grid-template-columns: 320px 1fr; }  /* RTL: sidebar on the 
   border: 1px solid var(--color-outline);
   border-radius: var(--radius-pill);
   padding: 4px 6px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.20);
+  box-shadow: var(--shadow-2);
 }
 .match-nav[hidden] { display: none; }
 .match-nav .match-input {
@@ -385,7 +399,7 @@ main.with-sidebar { grid-template-columns: 320px 1fr; }  /* RTL: sidebar on the 
   opacity: 0.7;
   transition: background 0.12s ease, opacity 0.12s ease;
 }
-.match-nav button:hover { background: var(--color-primary-subtle, rgba(0,0,0,0.06)); opacity: 1; }
+.match-nav button:hover { background: var(--color-primary-subtle); opacity: 1; }
 .match-nav #match-close { color: var(--color-error); }
 
 .empty-state {
@@ -441,7 +455,7 @@ footer.status {
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--color-scrim);
   z-index: 40;
   backdrop-filter: blur(1px);
 }
