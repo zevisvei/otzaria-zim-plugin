@@ -15,11 +15,17 @@
     "plugin.storage.read",
     "plugin.storage.write",
     "fs.user_files.read",
+    "network.access",
     "events.subscribe:theme.changed"
   ],
   "network": {
-    "enabled": false,
-    "allowlist": []
+    "enabled": true,
+    "allowlist": [
+      "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/milon-klei-kodesh.zim",
+      "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/wikisugya.zim",
+      "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/wikishiva.zim",
+      "https://objects.githubusercontent.com/"
+    ]
   },
   "contributes": {
     "toolTab": {

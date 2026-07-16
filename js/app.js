@@ -1703,12 +1703,30 @@
     setTimeout(() => { els.drawer.hidden = true; }, 250);
   }
 
-  function downloadArchive(item) {
-    // Open the GitHub Release asset in the browser (no plugin network access
-    // needed; release assets download fine even behind content filters).
-    try { window.open(item.url, '_blank', 'noopener'); }
-    catch (_) { try { location.href = item.url; } catch (_e) {} }
-    setStatus('נפתחה הורדה בדפדפן: ' + item.title, false);
+  async function downloadArchive(item, buttonEl) {
+    // Direct download to disk via the Otzaria SDK. Requires the URL to be in
+    // this manifest's network.allowlist AND in Otzaria's global allowlist.
+    if (buttonEl && buttonEl.disabled) return;
+    const nameEl = buttonEl ? buttonEl.querySelector('.dl-name') : null;
+    const wasLabel = nameEl ? nameEl.textContent : null;
+    if (buttonEl) buttonEl.disabled = true;
+    if (nameEl) nameEl.textContent = '⏳ מוריד…';
+    setStatus('מוריד את ' + item.title + '…', true);
+    try {
+      const resp = await Otz.call('network.download', { url: item.url, filename: item.filename });
+      if (resp && resp.success && resp.data && resp.data.path) {
+        setStatus('הקובץ נשמר: ' + resp.data.path, false);
+        notifyOk(item.title + ' הורד בהצלחה אל: ' + resp.data.path);
+      } else {
+        const err = (resp && resp.error) || 'שגיאה לא ידועה';
+        notifyError('הורדת ' + item.title + ' נכשלה: ' + (err.message || err));
+      }
+    } catch (err) {
+      notifyError('הורדת ' + item.title + ' נכשלה: ' + (err && err.message ? err.message : err));
+    } finally {
+      if (buttonEl) buttonEl.disabled = false;
+      if (nameEl && wasLabel != null) nameEl.textContent = wasLabel;
+    }
   }
 
   if (els.downloadsToggle) els.downloadsToggle.addEventListener('click', openDrawer);
@@ -1720,7 +1738,7 @@
 
   DOWNLOADS.forEach((item) => {
     const buttonEl = els[item.btn];
-    if (buttonEl) buttonEl.addEventListener('click', () => downloadArchive(item));
+    if (buttonEl) buttonEl.addEventListener('click', () => downloadArchive(item, buttonEl));
   });
 
   // -----------------------------------------------------------------------
