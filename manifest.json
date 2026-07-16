@@ -23,7 +23,7 @@
   },
   "contributes": {
     "toolTab": {
-      "title": "ZIM",
+      "title": "קורא ZIM",
       "order": 300,
       "defaultPinned": true,
       "iconName": "book_24_regular"
