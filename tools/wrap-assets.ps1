@@ -1,4 +1,6 @@
-$dir = 'c:\Users\User\Desktop\kiwix_otzaria\otzaria-zim-plugin\js'
+# Resolve the plugin's js/ folder relative to this script (tools/ -> ../js),
+# so the build works from any checkout location.
+$dir = (Resolve-Path (Join-Path $PSScriptRoot '..\js')).Path
 
 $jsText = [System.IO.File]::ReadAllText("$dir\libzim-wasm.js")
 $escaped = $jsText.Replace('\','\\').Replace('`','\`').Replace('${','\${')

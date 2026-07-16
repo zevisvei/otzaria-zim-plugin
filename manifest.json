@@ -1,19 +1,21 @@
 {
   "schemaVersion": 1,
   "id": "com.otzaria.zim-reader",
-  "name": "קורא קבצי ZIM (Kiwix)",
-  "version": "0.1.1",
-  "description": "תוסף לקריאת קבצי ZIM (Kiwix) — ויקיפדיה offline, ויקיטקסט ועוד. מבוסס על libzim של פרויקט Kiwix.",
-  "author": "האדם החושב",
+  "name": "קורא ZIM",
+  "version": "0.5.0",
+  "description": "קורא קבצי ZIM (Kiwix) לאוצריא — טעינה מהירה, ריבוי ארכיונים, חיפוש חכם בעברית וניווט. מבוסס libzim.",
+  "author": "האדם החושב · rework: YairDaniel11",
   "homepage": "https://github.com/zevisvei/otzaria-zim-plugin",
   "stability": "experimental",
   "entrypoint": "index.html",
-  "minAppVersion": "0.9.89",
+  "minAppVersion": "0.9.94",
   "sdkVersion": "1.x",
   "permissions": [
     "ui.feedback",
     "plugin.storage.read",
-    "plugin.storage.write"
+    "plugin.storage.write",
+    "fs.user_files.read",
+    "events.subscribe:theme.changed"
   ],
   "network": {
     "enabled": false,
