@@ -1,3 +1,6 @@
 kiwix-zim-reader.otzplugin
 .build-stage/
 *.zip
+
+_release_assets/
+kora-ZIM-*.otzplugin
