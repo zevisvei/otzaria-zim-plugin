@@ -675,8 +675,6 @@
       els.homeBtn.disabled = false;
       if (els.findInPage) els.findInPage.disabled = false;
       if (els.bookmarkToggle) els.bookmarkToggle.disabled = false;
-      if (els.bookmarksListBtn) els.bookmarksListBtn.disabled = false;
-      if (els.recentListBtn) els.recentListBtn.disabled = false;
       els.searchBox.focus();
 
       try {
@@ -694,9 +692,6 @@
       Otz.call('storage.set', { key: 'lastArchiveName', value: displayName }).catch(() => {});
       if (activeToken) Otz.call('storage.set', { key: ACTIVE_KEY, value: activeToken }).catch(() => {});
       updateArchiveSelect();
-      await loadBookmarks();
-      await loadRecent();
-      updateBookmarkBtn();
 
       await openInitialEntry(activeToken);
       if (mySeq !== loadSeq) return;
@@ -727,8 +722,8 @@
   const LIBRARY_KEY = 'zimLibrary';       // JSON array of { token, name }
   const ACTIVE_KEY  = 'zimActiveToken';   // token of the active archive
   const POS_PREFIX  = 'zimPos:';          // + token → last article path
-  const BOOKMARKS_PREFIX = 'zimBookmarks:';  // + token → JSON array of { path, title }
-  const RECENT_PREFIX    = 'zimRecent:';     // + token → JSON array of { path, title }, newest first
+  const GLOBAL_BOOKMARKS_KEY = 'zimBookmarksGlobal';  // JSON array of { token, archiveName, path, title } — across ALL archives
+  const GLOBAL_RECENT_KEY    = 'zimRecentGlobal';     // same shape, newest-viewed first
   const RECENT_MAX = 30;
 
   let library = [];        // [{ token, name }]
@@ -762,51 +757,57 @@
     library = library.filter((a) => a.token !== token);
     saveLibrary();
     Otz.call('storage.remove', { key: POS_PREFIX + token }).catch(() => {});
-    Otz.call('storage.remove', { key: BOOKMARKS_PREFIX + token }).catch(() => {});
-    Otz.call('storage.remove', { key: RECENT_PREFIX + token }).catch(() => {});
+    // Drop any bookmarks/recent entries pointing at the removed archive —
+    // their path would be meaningless once the file itself is gone.
+    bookmarks = bookmarks.filter((b) => b.token !== token);
+    recentList = recentList.filter((r) => r.token !== token);
+    saveBookmarks();
+    saveRecent();
     Otz.call('fs.revokeFile', { token: token }).catch(() => {});
     if (token === activeToken) activeToken = null;
     updateArchiveSelect();
   }
 
   // -----------------------------------------------------------------------
-  // Bookmarks & recently-viewed — per active archive (token), like `library`.
+  // Bookmarks & recently-viewed — GLOBAL across every archive ever opened
+  // (unlike `library`/`POS_PREFIX`, which are per-archive). Each entry
+  // carries its own archive token + display name so a click can switch
+  // archives first if needed, and the list can show which file it's from.
   // -----------------------------------------------------------------------
-  let bookmarks = [];    // [{ path, title }] for the active archive, newest-added first
-  let recentList = [];   // [{ path, title }] for the active archive, newest-viewed first
+  let bookmarks = [];    // [{ token, archiveName, path, title }], newest-added first
+  let recentList = [];   // same shape, newest-viewed first
 
   async function loadBookmarks() {
     bookmarks = [];
-    if (!activeToken) return;
     try {
-      const g = await Otz.call('storage.get', { key: BOOKMARKS_PREFIX + activeToken });
+      const g = await Otz.call('storage.get', { key: GLOBAL_BOOKMARKS_KEY });
       const arr = g && g.success && g.data ? JSON.parse(g.data) : null;
       bookmarks = Array.isArray(arr) ? arr : [];
     } catch (_) { bookmarks = []; }
   }
 
   function saveBookmarks() {
-    if (!activeToken) return;
-    Otz.call('storage.set', { key: BOOKMARKS_PREFIX + activeToken, value: JSON.stringify(bookmarks) }).catch(() => {});
+    Otz.call('storage.set', { key: GLOBAL_BOOKMARKS_KEY, value: JSON.stringify(bookmarks) }).catch(() => {});
   }
 
   async function loadRecent() {
     recentList = [];
-    if (!activeToken) return;
     try {
-      const g = await Otz.call('storage.get', { key: RECENT_PREFIX + activeToken });
+      const g = await Otz.call('storage.get', { key: GLOBAL_RECENT_KEY });
       const arr = g && g.success && g.data ? JSON.parse(g.data) : null;
       recentList = Array.isArray(arr) ? arr : [];
     } catch (_) { recentList = []; }
   }
 
   function saveRecent() {
-    if (!activeToken) return;
-    Otz.call('storage.set', { key: RECENT_PREFIX + activeToken, value: JSON.stringify(recentList) }).catch(() => {});
+    Otz.call('storage.set', { key: GLOBAL_RECENT_KEY, value: JSON.stringify(recentList) }).catch(() => {});
   }
 
+  // Paths are only unique WITHIN an archive, so membership/dedup must match
+  // on (token, path) together — otherwise unrelated archives that happen to
+  // share a path (e.g. both have "Home") would collide.
   function isBookmarked(path) {
-    return bookmarks.some((b) => b.path === path);
+    return bookmarks.some((b) => b.token === activeToken && b.path === path);
   }
 
   function updateBookmarkBtn() {
@@ -818,9 +819,9 @@
 
   function toggleBookmark() {
     if (!currentArticlePath) return;
-    const idx = bookmarks.findIndex((b) => b.path === currentArticlePath);
+    const idx = bookmarks.findIndex((b) => b.token === activeToken && b.path === currentArticlePath);
     if (idx >= 0) bookmarks.splice(idx, 1);
-    else bookmarks.unshift({ path: currentArticlePath, title: currentArticleTitle || currentArticlePath });
+    else bookmarks.unshift({ token: activeToken, archiveName: currentArchiveName, path: currentArticlePath, title: currentArticleTitle || currentArticlePath });
     saveBookmarks();
     updateBookmarkBtn();
     if (listPanelMode === 'bookmarks') renderBookmarksList();   // keep an open list in sync
@@ -828,15 +829,32 @@
 
   function addRecent(path, title) {
     if (!path) return;
-    recentList = recentList.filter((r) => r.path !== path);
-    recentList.unshift({ path: path, title: title || path });
+    recentList = recentList.filter((r) => !(r.token === activeToken && r.path === path));
+    recentList.unshift({ token: activeToken, archiveName: currentArchiveName, path: path, title: title || path });
     if (recentList.length > RECENT_MAX) recentList.length = RECENT_MAX;
     saveRecent();
     if (listPanelMode === 'recent') renderRecentList();
   }
 
-  // Render a simple clickable list of { path, title } into the sidebar,
-  // reusing the same `.suggestion` card look used for search results.
+  // Open a saved bookmark/recent entry: switch archives first if it belongs
+  // to one that isn't currently active, then navigate to its path.
+  async function openGlobalEntry(it) {
+    if (!it) return;
+    // Entries saved without a token (the legacy <input type=file> path has
+    // none) can't be told apart from each other by token alone — comparing
+    // archive name too avoids silently querying the wrong open archive.
+    const sameArchive = it.token ? it.token === activeToken : it.archiveName === currentArchiveName;
+    if (!sameArchive) {
+      if (!it.token) { notifyError('לא ניתן לאתר את הארכיון של פריט זה.'); return; }
+      const ok = await switchToToken(it.token);
+      if (!ok) return;   // switchToToken already reported the error
+    }
+    await openByPath(it.path);
+  }
+
+  // Render a simple clickable list of { token, archiveName, path, title }
+  // into the sidebar, reusing the same `.suggestion` card look used for
+  // search results — each row also shows its source archive in small text.
   function renderPathList(items, emptyText, mode) {
     listPanelMode = mode;
     els.suggestions.innerHTML = '';
@@ -850,9 +868,17 @@
       items.forEach((it) => {
         const div = document.createElement('div');
         div.className = 'suggestion';
-        div.textContent = it.title || it.path;
+        const title = document.createElement('div');
+        title.textContent = it.title || it.path;
+        div.appendChild(title);
+        if (it.archiveName) {
+          const sub = document.createElement('div');
+          sub.className = 'suggestion-source';
+          sub.textContent = it.archiveName;
+          div.appendChild(sub);
+        }
         div.title = it.path;
-        div.addEventListener('click', () => openByPath(it.path));
+        div.addEventListener('click', () => openGlobalEntry(it));
         els.suggestions.appendChild(div);
       });
     }
@@ -860,8 +886,8 @@
   }
 
   let listPanelMode = null;   // 'bookmarks' | 'recent' | null — which list (if any) the panel shows
-  function renderBookmarksList() { renderPathList(bookmarks, 'אין עדיין מועדפים בארכיון זה.', 'bookmarks'); }
-  function renderRecentList()    { renderPathList(recentList, 'עדיין לא נצפו דפים בארכיון זה.', 'recent'); }
+  function renderBookmarksList() { renderPathList(bookmarks, 'אין עדיין מועדפים.', 'bookmarks'); }
+  function renderRecentList()    { renderPathList(recentList, 'עדיין לא נצפו דפים.', 'recent'); }
 
   // -----------------------------------------------------------------------
   // Back/forward navigation history — in-memory only, reset per archive load.
@@ -930,7 +956,7 @@
     currentArchiveObj = null;
     activeToken = null;
     navHistory = []; navIndex = -1; updateNavButtons();
-    bookmarks = []; recentList = [];
+    // Bookmarks/recent are global (not tied to this archive) — keep them.
     try { els.iframe.srcdoc = ''; } catch (_) {}
     els.iframe.style.display = 'none';
     els.welcome.style.display = '';
@@ -942,8 +968,6 @@
     els.homeBtn.disabled = true;
     if (els.findInPage) els.findInPage.disabled = true;
     if (els.bookmarkToggle) els.bookmarkToggle.disabled = true;
-    if (els.bookmarksListBtn) els.bookmarksListBtn.disabled = true;
-    if (els.recentListBtn) els.recentListBtn.disabled = true;
     updateBookmarkBtn();
     findBarOpen = false;
     panelOpen = false;
@@ -1028,15 +1052,19 @@
   }
 
   async function switchToToken(token) {
-    if (!token || token === activeToken) return;
+    if (!token) return false;
+    if (token === activeToken) return true;
     try {
       const ok = await resolveAndStart(token);
       if (!ok) {
         notifyError('הקובץ אינו זמין (אולי נמחק) — מוסר מהרשימה');
         removeFromLibrary(token);
+        return false;
       }
+      return true;
     } catch (err) {
       notifyError('מעבר לקובץ נכשל: ' + (err && err.message ? err.message : err));
+      return false;
     }
   }
 
@@ -1443,7 +1471,21 @@
     if (!workerReady) return;
     setStatus('טוען: ' + path, true);
     try {
-      const resp = await fetchEntry(path, true);
+      let resp = await fetchEntry(path, true);
+      // MediaWiki treats "_" and " " as interchangeable in titles, but a
+      // static ZIM only stores one literal form — a link authored with the
+      // other form (or a path saved from one source, re-opened via another)
+      // can miss even though the page exists. Retry once with the swap
+      // before reporting "not found".
+      if ((!resp || !resp.content || !resp.content.length) && /[ _]/.test(path)) {
+        const swapped = path.includes('_') ? path.replace(/_/g, ' ') : path.replace(/ /g, '_');
+        if (swapped !== path) {
+          try {
+            const alt = await fetchEntry(swapped, true);
+            if (alt && alt.content && alt.content.length) { resp = alt; path = swapped; }
+          } catch (_) { /* keep the original failure */ }
+        }
+      }
       if (!resp || !resp.content || !resp.content.length) {
         notifyError('לא נמצא: ' + path);
         return;
@@ -2077,10 +2119,14 @@
     }
   }
 
-  Otz.on('plugin.boot', (payload) => {
+  Otz.on('plugin.boot', async (payload) => {
     if (payload && payload.theme) applyTheme(payload.theme);
     setStatus('מוכן. בחר/י קובץ ZIM כדי להתחיל.', false);
     loadFontScale();
+    // Global — loaded once, not per-archive. Awaited before restoring the
+    // active archive so the first article's addRecent() (fired while
+    // restoring) can't race a still-pending load and get overwritten.
+    await Promise.all([loadBookmarks(), loadRecent()]);
     // Rebuild the library and re-open the last-used archive at its last article.
     restoreLibraryAndActive();
   });

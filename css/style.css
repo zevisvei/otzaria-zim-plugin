@@ -178,6 +178,10 @@ button.secondary:hover { background: var(--color-primary-subtle); filter: none; 
 .icon-btn[hidden] { display: none; }
 .icon-btn.active { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
 
+/* Toolbar buttons that pair a small line icon with a text label. */
+.btn-icon-label { display: inline-flex; align-items: center; gap: 6px; }
+.btn-icon-label svg { width: 16px; height: 16px; flex: none; }
+
 input[type="file"] { display: none; }
 
 /* ====================== Overflow ("⋯") dropdown menu ==================== */
@@ -363,6 +367,12 @@ main.with-sidebar { grid-template-columns: 320px 1fr; }  /* RTL: sidebar on the 
   unicode-bidi: plaintext;
 }
 .suggestion .snippet b { color: var(--color-primary); font-weight: 700; }
+/* Which archive a bookmark/recent-history entry belongs to (global lists span all archives). */
+.suggestion-source {
+  font-size: 0.76rem;
+  opacity: 0.65;
+  margin-top: 3px;
+}
 
 /* Table-of-contents items */
 .toc-item {

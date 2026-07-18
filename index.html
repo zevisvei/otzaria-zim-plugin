@@ -22,26 +22,24 @@
       <select id="archive-select" class="archive-select" title="קבצים פתוחים" hidden></select>
       <button id="archive-remove" class="secondary icon-btn" title="הסר קובץ מהרשימה" hidden>✕</button>
       <input type="search" id="search-box" class="search-box-lg" placeholder="הקלד מילה לחיפוש" disabled autocomplete="off" />
+      <button id="search-btn" class="btn-icon-label" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        חיפוש בתוכן
+      </button>
+      <button id="find-in-page" class="secondary btn-icon-label" title="חיפוש בתוך הדף הפתוח" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        חפש בדף
+      </button>
+      <button id="home-btn" class="secondary btn-icon-label" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        דף הבית
+      </button>
+      <button id="bookmark-toggle" class="secondary icon-btn" title="הוסף למועדפים" disabled>☆</button>
       <div class="menu-wrap">
         <button id="more-menu-btn" class="secondary icon-btn" title="עוד אפשרויות" aria-haspopup="true" aria-expanded="false">⋯</button>
         <div id="more-menu" class="dropdown-menu" hidden role="menu">
-          <button id="home-btn" class="dropdown-item" disabled role="menuitem">
-            <span class="dropdown-item-icon">🏠</span> דף הבית
-          </button>
-          <button id="find-in-page" class="dropdown-item" title="חיפוש בתוך הדף הפתוח" disabled role="menuitem">
-            <span class="dropdown-item-icon">🔎</span> חפש בדף
-          </button>
-          <button id="search-btn" class="dropdown-item" disabled role="menuitem">
-            <span class="dropdown-item-icon">📖</span> חיפוש בתוכן
-          </button>
-          <div class="dropdown-sep"></div>
-          <button id="bookmark-toggle" class="dropdown-item" disabled role="menuitem">☆ הוסף למועדפים</button>
-          <button id="bookmarks-list-btn" class="dropdown-item" disabled role="menuitem">
-            <span class="dropdown-item-icon">★</span> רשימת המועדפים
-          </button>
-          <button id="recent-list-btn" class="dropdown-item" disabled role="menuitem">
-            <span class="dropdown-item-icon">🕘</span> נצפו לאחרונה
-          </button>
+          <button id="bookmarks-list-btn" class="dropdown-item" role="menuitem">רשימת המועדפים</button>
+          <button id="recent-list-btn" class="dropdown-item" role="menuitem">נצפו לאחרונה</button>
           <div class="dropdown-sep"></div>
           <div class="dropdown-row">
             <span class="dropdown-row-label">גודל טקסט</span>
@@ -49,9 +47,7 @@
             <button id="font-inc" class="icon-btn secondary" title="הגדל גודל טקסט">A+</button>
           </div>
           <div class="dropdown-sep"></div>
-          <button id="downloads-toggle" class="dropdown-item" role="menuitem">
-            <span class="dropdown-item-icon">⬇</span> מאגרים להורדה
-          </button>
+          <button id="downloads-toggle" class="dropdown-item" role="menuitem">מאגרים להורדה</button>
         </div>
       </div>
     </div>
