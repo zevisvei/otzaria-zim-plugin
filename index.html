@@ -16,14 +16,44 @@
 
     <div class="toolbar">
       <button id="sidebar-toggle" class="secondary icon-btn" title="הצג/הסתר תוכן עניינים / תוצאות" hidden>☰</button>
+      <button id="nav-back" class="secondary icon-btn" title="חזור לדף הקודם" disabled>‹</button>
+      <button id="nav-fwd" class="secondary icon-btn" title="קדימה לדף הבא" disabled>›</button>
       <input type="file" id="zim-file" accept=".zim,.zimaa,.zimab" />
       <select id="archive-select" class="archive-select" title="קבצים פתוחים" hidden></select>
       <button id="archive-remove" class="secondary icon-btn" title="הסר קובץ מהרשימה" hidden>✕</button>
-      <input type="search" id="search-box" placeholder="הקלד מילה לחיפוש" disabled autocomplete="off" />
-      <button id="search-btn" disabled>חיפוש בתוכן</button>
-      <button id="find-in-page" class="secondary" title="חיפוש בתוך הדף הפתוח" disabled>חפש בדף</button>
-      <button id="home-btn" class="secondary" disabled>דף הבית</button>
-      <button id="downloads-toggle" class="secondary">⬇ מאגרים להורדה</button>
+      <input type="search" id="search-box" class="search-box-lg" placeholder="הקלד מילה לחיפוש" disabled autocomplete="off" />
+      <div class="menu-wrap">
+        <button id="more-menu-btn" class="secondary icon-btn" title="עוד אפשרויות" aria-haspopup="true" aria-expanded="false">⋯</button>
+        <div id="more-menu" class="dropdown-menu" hidden role="menu">
+          <button id="home-btn" class="dropdown-item" disabled role="menuitem">
+            <span class="dropdown-item-icon">🏠</span> דף הבית
+          </button>
+          <button id="find-in-page" class="dropdown-item" title="חיפוש בתוך הדף הפתוח" disabled role="menuitem">
+            <span class="dropdown-item-icon">🔎</span> חפש בדף
+          </button>
+          <button id="search-btn" class="dropdown-item" disabled role="menuitem">
+            <span class="dropdown-item-icon">📖</span> חיפוש בתוכן
+          </button>
+          <div class="dropdown-sep"></div>
+          <button id="bookmark-toggle" class="dropdown-item" disabled role="menuitem">☆ הוסף למועדפים</button>
+          <button id="bookmarks-list-btn" class="dropdown-item" disabled role="menuitem">
+            <span class="dropdown-item-icon">★</span> רשימת המועדפים
+          </button>
+          <button id="recent-list-btn" class="dropdown-item" disabled role="menuitem">
+            <span class="dropdown-item-icon">🕘</span> נצפו לאחרונה
+          </button>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-row">
+            <span class="dropdown-row-label">גודל טקסט</span>
+            <button id="font-dec" class="icon-btn secondary" title="הקטן גודל טקסט">A−</button>
+            <button id="font-inc" class="icon-btn secondary" title="הגדל גודל טקסט">A+</button>
+          </div>
+          <div class="dropdown-sep"></div>
+          <button id="downloads-toggle" class="dropdown-item" role="menuitem">
+            <span class="dropdown-item-icon">⬇</span> מאגרים להורדה
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="drawer-overlay" id="drawer-overlay" hidden></div>

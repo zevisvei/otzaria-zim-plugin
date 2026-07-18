@@ -29,6 +29,15 @@
     searchBox:    document.getElementById('search-box'),
     searchBtn:    document.getElementById('search-btn'),
     homeBtn:      document.getElementById('home-btn'),
+    navBack:      document.getElementById('nav-back'),
+    navFwd:       document.getElementById('nav-fwd'),
+    bookmarkToggle:   document.getElementById('bookmark-toggle'),
+    bookmarksListBtn: document.getElementById('bookmarks-list-btn'),
+    recentListBtn:    document.getElementById('recent-list-btn'),
+    fontDec:      document.getElementById('font-dec'),
+    fontInc:      document.getElementById('font-inc'),
+    moreMenuBtn:  document.getElementById('more-menu-btn'),
+    moreMenu:     document.getElementById('more-menu'),
     archiveName:  document.getElementById('archive-name'),
     sidebar:      document.getElementById('sidebar'),
     sidebarTitle: document.getElementById('sidebar-title'),
@@ -349,6 +358,7 @@
   let currentArchiveName = null;
   let currentArchiveObj = null;        // {file|url,size} of the loaded archive — for raw header reads (e.g. _mp)
   let currentArticlePath = null;       // path of the article currently shown
+  let currentArticleTitle = null;      // <title> of the article currently shown (for bookmarks/history)
   const blobCache = new Map();         // path -> blob URL  (cleared on archive change)
   let suggestSeq = 0;                  // for racing suggest requests
   let workerBlobUrl = null;            // cached blob URL for the worker script
@@ -448,6 +458,24 @@
 
   function notifyOk(message) {
     Otz.call('ui.showMessage', { message: message }).catch(() => {});
+  }
+
+  // A click on an external link never navigates directly — people sometimes
+  // click these by mistake, thinking they lead to another page inside the
+  // same archive. Ask first, and only open the system browser on approval.
+  async function confirmOpenExternal(url) {
+    let hostname = url;
+    try { hostname = new URL(url).hostname || url; } catch (_) { /* keep the raw url */ }
+    const c = await Otz.call('ui.showConfirm', {
+      title: 'קישור לאתר חיצוני',
+      content: 'הקישור הזה מוביל אל האתר "' + hostname + '" — מחוץ לארכיון הפתוח ומחוץ לתוסף. ' +
+               'האם לפתוח אותו בדפדפן המערכת שלכם?'
+    }).catch(() => null);
+    if (!c || !c.success || !c.data || c.data.confirmed !== true) return;
+    const r = await Otz.call('app.openUrl', { url: url }).catch(() => null);
+    if (!r || !r.success) {
+      notifyError('פתיחת הקישור נכשלה' + (r && r.error && r.error.message ? ': ' + r.error.message : '.'));
+    }
   }
 
   function debounce(fn, ms) {
@@ -562,6 +590,8 @@
     blobCache.forEach((url) => { try { URL.revokeObjectURL(url); } catch (_) {} });
     blobCache.clear();
     currentArticlePath = null;
+    currentArticleTitle = null;
+    navHistory = []; navIndex = -1; updateNavButtons();
     els.iframe.style.display = 'none';
     els.welcome.style.display = '';
 
@@ -644,6 +674,9 @@
       els.searchBtn.disabled = false;
       els.homeBtn.disabled = false;
       if (els.findInPage) els.findInPage.disabled = false;
+      if (els.bookmarkToggle) els.bookmarkToggle.disabled = false;
+      if (els.bookmarksListBtn) els.bookmarksListBtn.disabled = false;
+      if (els.recentListBtn) els.recentListBtn.disabled = false;
       els.searchBox.focus();
 
       try {
@@ -661,6 +694,9 @@
       Otz.call('storage.set', { key: 'lastArchiveName', value: displayName }).catch(() => {});
       if (activeToken) Otz.call('storage.set', { key: ACTIVE_KEY, value: activeToken }).catch(() => {});
       updateArchiveSelect();
+      await loadBookmarks();
+      await loadRecent();
+      updateBookmarkBtn();
 
       await openInitialEntry(activeToken);
       if (mySeq !== loadSeq) return;
@@ -691,6 +727,9 @@
   const LIBRARY_KEY = 'zimLibrary';       // JSON array of { token, name }
   const ACTIVE_KEY  = 'zimActiveToken';   // token of the active archive
   const POS_PREFIX  = 'zimPos:';          // + token → last article path
+  const BOOKMARKS_PREFIX = 'zimBookmarks:';  // + token → JSON array of { path, title }
+  const RECENT_PREFIX    = 'zimRecent:';     // + token → JSON array of { path, title }, newest first
+  const RECENT_MAX = 30;
 
   let library = [];        // [{ token, name }]
   let activeToken = null;
@@ -723,9 +762,160 @@
     library = library.filter((a) => a.token !== token);
     saveLibrary();
     Otz.call('storage.remove', { key: POS_PREFIX + token }).catch(() => {});
+    Otz.call('storage.remove', { key: BOOKMARKS_PREFIX + token }).catch(() => {});
+    Otz.call('storage.remove', { key: RECENT_PREFIX + token }).catch(() => {});
     Otz.call('fs.revokeFile', { token: token }).catch(() => {});
     if (token === activeToken) activeToken = null;
     updateArchiveSelect();
+  }
+
+  // -----------------------------------------------------------------------
+  // Bookmarks & recently-viewed — per active archive (token), like `library`.
+  // -----------------------------------------------------------------------
+  let bookmarks = [];    // [{ path, title }] for the active archive, newest-added first
+  let recentList = [];   // [{ path, title }] for the active archive, newest-viewed first
+
+  async function loadBookmarks() {
+    bookmarks = [];
+    if (!activeToken) return;
+    try {
+      const g = await Otz.call('storage.get', { key: BOOKMARKS_PREFIX + activeToken });
+      const arr = g && g.success && g.data ? JSON.parse(g.data) : null;
+      bookmarks = Array.isArray(arr) ? arr : [];
+    } catch (_) { bookmarks = []; }
+  }
+
+  function saveBookmarks() {
+    if (!activeToken) return;
+    Otz.call('storage.set', { key: BOOKMARKS_PREFIX + activeToken, value: JSON.stringify(bookmarks) }).catch(() => {});
+  }
+
+  async function loadRecent() {
+    recentList = [];
+    if (!activeToken) return;
+    try {
+      const g = await Otz.call('storage.get', { key: RECENT_PREFIX + activeToken });
+      const arr = g && g.success && g.data ? JSON.parse(g.data) : null;
+      recentList = Array.isArray(arr) ? arr : [];
+    } catch (_) { recentList = []; }
+  }
+
+  function saveRecent() {
+    if (!activeToken) return;
+    Otz.call('storage.set', { key: RECENT_PREFIX + activeToken, value: JSON.stringify(recentList) }).catch(() => {});
+  }
+
+  function isBookmarked(path) {
+    return bookmarks.some((b) => b.path === path);
+  }
+
+  function updateBookmarkBtn() {
+    if (!els.bookmarkToggle) return;
+    const on = !!currentArticlePath && isBookmarked(currentArticlePath);
+    els.bookmarkToggle.textContent = on ? '★ הסר מהמועדפים' : '☆ הוסף למועדפים';
+    els.bookmarkToggle.classList.toggle('active', on);
+  }
+
+  function toggleBookmark() {
+    if (!currentArticlePath) return;
+    const idx = bookmarks.findIndex((b) => b.path === currentArticlePath);
+    if (idx >= 0) bookmarks.splice(idx, 1);
+    else bookmarks.unshift({ path: currentArticlePath, title: currentArticleTitle || currentArticlePath });
+    saveBookmarks();
+    updateBookmarkBtn();
+    if (listPanelMode === 'bookmarks') renderBookmarksList();   // keep an open list in sync
+  }
+
+  function addRecent(path, title) {
+    if (!path) return;
+    recentList = recentList.filter((r) => r.path !== path);
+    recentList.unshift({ path: path, title: title || path });
+    if (recentList.length > RECENT_MAX) recentList.length = RECENT_MAX;
+    saveRecent();
+    if (listPanelMode === 'recent') renderRecentList();
+  }
+
+  // Render a simple clickable list of { path, title } into the sidebar,
+  // reusing the same `.suggestion` card look used for search results.
+  function renderPathList(items, emptyText, mode) {
+    listPanelMode = mode;
+    els.suggestions.innerHTML = '';
+    setResultsMode(false);
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state small';
+      empty.textContent = emptyText;
+      els.suggestions.appendChild(empty);
+    } else {
+      items.forEach((it) => {
+        const div = document.createElement('div');
+        div.className = 'suggestion';
+        div.textContent = it.title || it.path;
+        div.title = it.path;
+        div.addEventListener('click', () => openByPath(it.path));
+        els.suggestions.appendChild(div);
+      });
+    }
+    setPanel(mode === 'bookmarks' ? 'מועדפים' : 'נצפו לאחרונה', true);
+  }
+
+  let listPanelMode = null;   // 'bookmarks' | 'recent' | null — which list (if any) the panel shows
+  function renderBookmarksList() { renderPathList(bookmarks, 'אין עדיין מועדפים בארכיון זה.', 'bookmarks'); }
+  function renderRecentList()    { renderPathList(recentList, 'עדיין לא נצפו דפים בארכיון זה.', 'recent'); }
+
+  // -----------------------------------------------------------------------
+  // Back/forward navigation history — in-memory only, reset per archive load.
+  // -----------------------------------------------------------------------
+  let navHistory = [];        // [{ path, highlight }]
+  let navIndex = -1;
+  let navigatingHistory = false;   // true while a back/forward navigation is in flight
+
+  function updateNavButtons() {
+    if (els.navBack) els.navBack.disabled = navIndex <= 0;
+    if (els.navFwd)  els.navFwd.disabled = navIndex < 0 || navIndex >= navHistory.length - 1;
+  }
+
+  function pushHistory(path, highlight) {
+    if (navigatingHistory) return;
+    if (navIndex >= 0 && navHistory[navIndex] && navHistory[navIndex].path === path) return;
+    navHistory = navHistory.slice(0, navIndex + 1);
+    navHistory.push({ path: path, highlight: highlight || '' });
+    navIndex = navHistory.length - 1;
+    updateNavButtons();
+  }
+
+  async function goHistory(step) {
+    const next = navIndex + step;
+    if (next < 0 || next >= navHistory.length) return;
+    navIndex = next;
+    navigatingHistory = true;
+    try { await openByPath(navHistory[navIndex].path, navHistory[navIndex].highlight); }
+    finally { navigatingHistory = false; updateNavButtons(); }
+  }
+
+  // -----------------------------------------------------------------------
+  // Article text size — global preference (not per-archive), applied to the
+  // rendered article via an injected stylesheet + live-adjusted in place.
+  // -----------------------------------------------------------------------
+  const FONT_KEY = 'zimFontScale';
+  const FONT_STEP = 10, FONT_MIN = 70, FONT_MAX = 200;
+  let fontScale = 100;   // percent
+
+  async function loadFontScale() {
+    try {
+      const g = await Otz.call('storage.get', { key: FONT_KEY });
+      const n = g && g.success ? parseInt(g.data, 10) : NaN;
+      if (!isNaN(n) && n >= FONT_MIN && n <= FONT_MAX) fontScale = n;
+    } catch (_) { /* keep default */ }
+  }
+
+  function setFontScale(n) {
+    fontScale = Math.max(FONT_MIN, Math.min(FONT_MAX, n));
+    Otz.call('storage.set', { key: FONT_KEY, value: String(fontScale) }).catch(() => {});
+    try {
+      const idoc = els.iframe.contentDocument;
+      if (idoc && idoc.documentElement) idoc.documentElement.style.fontSize = fontScale + '%';
+    } catch (_) { /* no article open yet — the scale still applies to the next render */ }
   }
 
   // Tear everything down and return to the initial welcome screen.
@@ -735,9 +925,12 @@
     blobCache.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
     blobCache.clear();
     currentArticlePath = null;
+    currentArticleTitle = null;
     currentArchiveName = null;
     currentArchiveObj = null;
     activeToken = null;
+    navHistory = []; navIndex = -1; updateNavButtons();
+    bookmarks = []; recentList = [];
     try { els.iframe.srcdoc = ''; } catch (_) {}
     els.iframe.style.display = 'none';
     els.welcome.style.display = '';
@@ -748,6 +941,10 @@
     els.searchBtn.disabled = true;
     els.homeBtn.disabled = true;
     if (els.findInPage) els.findInPage.disabled = true;
+    if (els.bookmarkToggle) els.bookmarkToggle.disabled = true;
+    if (els.bookmarksListBtn) els.bookmarksListBtn.disabled = true;
+    if (els.recentListBtn) els.recentListBtn.disabled = true;
+    updateBookmarkBtn();
     findBarOpen = false;
     panelOpen = false;
     clearPanel();
@@ -1463,8 +1660,12 @@
   async function renderArticle(path, resp, highlight) {
     currentArticlePath = path;
     savePosition(path);
+    pushHistory(path, highlight);
     const html = new TextDecoder('utf-8').decode(resp.content);
     const doc = new DOMParser().parseFromString(html, 'text/html');
+    currentArticleTitle = (doc.title || '').trim() || path;
+    updateBookmarkBtn();
+    addRecent(path, currentArticleTitle);
 
     // Strip scripts entirely (security)
     doc.querySelectorAll('script').forEach((el) => el.remove());
@@ -1485,6 +1686,7 @@
       const onSurface = (rootStyle.getPropertyValue('--color-on-surface') || '').trim();
       const st = doc.createElement('style');
       st.textContent =
+        'html{font-size:' + fontScale + '%;}' +
         'html,body{background:' + surface + ' !important;margin:0 !important;' +
         (onSurface ? 'color:' + onSurface + ';' : '') + '}' +
         // Neutralise MediaWiki's centred, max-width content columns and their
@@ -1532,15 +1734,24 @@
         // Non-navigable-in-archive schemes — block; no target="_blank" (that
         // used to trigger a host-level "open new window" flow that crashed
         // the plugin). Leave the href as-is (hovering still shows it) and
-        // just mark it; the click handler below blocks the click.
-        el.setAttribute('data-zim-external', '1');
+        // just mark it (empty value = nothing openable); the click handler
+        // below blocks the click.
+        el.setAttribute('data-zim-external', '');
         return;
       }
       const resolved = resolvePath(href, path);
       if (!resolved) {
         // Doesn't resolve to a path inside this archive — an external site
-        // (http/https, protocol-relative, or a bare domain). Block the same way.
-        el.setAttribute('data-zim-external', '1');
+        // (http/https, protocol-relative, or a bare domain). Block direct
+        // navigation the same way, but if it's a real http(s) URL, capture
+        // its absolute form so the click handler can offer to open it in the
+        // system browser (after a confirmation — see confirmOpenExternal).
+        let abs = '';
+        try {
+          const u = new URL(href, 'http://zim.local/' + path);
+          if (u.protocol === 'http:' || u.protocol === 'https:') abs = u.href;
+        } catch (_) { /* malformed href — leave abs empty */ }
+        el.setAttribute('data-zim-external', abs);
         return;
       }
       el.setAttribute('data-zim-path', resolved);
@@ -1566,7 +1777,9 @@
           if (target && target.tagName === 'A') {
             if (target.hasAttribute('data-zim-external')) {
               ev.preventDefault();
-              notifyError('קישור זה מפנה לאתר חיצוני ואינו נגיש מתוך התוסף.');
+              const url = target.getAttribute('data-zim-external');
+              if (url) confirmOpenExternal(url);
+              else notifyError('קישור זה אינו נגיש מתוך התוסף.');
               return;
             }
             const zp = target.getAttribute('data-zim-path');
@@ -1664,7 +1877,7 @@
   });
   // Touch fallback: some WebViews don't focus an input on tap — force it so the
   // keyboard opens and typing works without needing a mouse click.
-  els.searchBtn.addEventListener('click', runFullTextSearch);
+  els.searchBtn.addEventListener('click', () => { runFullTextSearch(); closeMoreMenu(); });
   els.homeBtn.addEventListener('click', () => {
     // Home clears an active search and closes the side panel + find bar.
     els.searchBox.value = '';
@@ -1672,8 +1885,46 @@
     clearPanel();
     closeFindBar();
     tryOpenMainPage();
+    closeMoreMenu();
   });
   if (els.sidebarToggle) els.sidebarToggle.addEventListener('click', toggleSidebar);
+
+  // Back/forward navigation history.
+  if (els.navBack) els.navBack.addEventListener('click', () => goHistory(-1));
+  if (els.navFwd)  els.navFwd.addEventListener('click', () => goHistory(1));
+
+  // Bookmarks: star toggles the current article; the two list buttons (in
+  // the "⋯" overflow menu) show the saved lists in the sidebar (reusing the
+  // search-results panel).
+  if (els.bookmarkToggle) els.bookmarkToggle.addEventListener('click', () => { toggleBookmark(); closeMoreMenu(); });
+  if (els.bookmarksListBtn) els.bookmarksListBtn.addEventListener('click', () => { renderBookmarksList(); closeMoreMenu(); });
+  if (els.recentListBtn) els.recentListBtn.addEventListener('click', () => { renderRecentList(); closeMoreMenu(); });
+
+  // Article text size.
+  if (els.fontDec) els.fontDec.addEventListener('click', () => setFontScale(fontScale - FONT_STEP));
+  if (els.fontInc) els.fontInc.addEventListener('click', () => setFontScale(fontScale + FONT_STEP));
+
+  // "⋯" overflow menu — opens under the button; closes on an outside click,
+  // Escape, or after picking one of the list items above.
+  function closeMoreMenu() {
+    if (!els.moreMenu) return;
+    els.moreMenu.hidden = true;
+    if (els.moreMenuBtn) els.moreMenuBtn.setAttribute('aria-expanded', 'false');
+  }
+  if (els.moreMenuBtn && els.moreMenu) {
+    els.moreMenuBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const willShow = els.moreMenu.hidden;
+      els.moreMenu.hidden = !willShow;
+      els.moreMenuBtn.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+    });
+    document.addEventListener('click', (ev) => {
+      if (!els.moreMenu.hidden && !els.moreMenu.contains(ev.target) && ev.target !== els.moreMenuBtn) closeMoreMenu();
+    });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && !els.moreMenu.hidden) closeMoreMenu();
+    });
+  }
 
   // Cancel search → back to the table of contents (re-enables heading nav).
   if (els.sidebarClear) {
@@ -1700,6 +1951,7 @@
   // Toggle: clicking "חפש בדף" again closes the find-in-page bar.
   if (els.findInPage) els.findInPage.addEventListener('click', () => {
     if (findBarOpen) closeFindBar(); else openFindBar();
+    closeMoreMenu();
   });
   if (els.matchInput) {
     const onFindInput = debounce(() => {
@@ -1794,7 +2046,7 @@
     }
   }
 
-  if (els.downloadsToggle) els.downloadsToggle.addEventListener('click', openDrawer);
+  if (els.downloadsToggle) els.downloadsToggle.addEventListener('click', () => { openDrawer(); closeMoreMenu(); });
   if (els.drawerClose)     els.drawerClose.addEventListener('click', closeDrawer);
   if (els.drawerOverlay)   els.drawerOverlay.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (ev) => {
@@ -1828,6 +2080,7 @@
   Otz.on('plugin.boot', (payload) => {
     if (payload && payload.theme) applyTheme(payload.theme);
     setStatus('מוכן. בחר/י קובץ ZIM כדי להתחיל.', false);
+    loadFontScale();
     // Rebuild the library and re-open the last-used archive at its last article.
     restoreLibraryAndActive();
   });
