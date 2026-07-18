@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.otzaria.zim-reader",
   "name": "קורא ZIM",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "קורא קבצי ZIM (Kiwix) לאוצריא — טעינה מהירה, ריבוי ארכיונים, חיפוש חכם בעברית וניווט. מבוסס libzim.",
   "author": "האדם החושב · rework: YairDaniel11",
   "homepage": "https://github.com/zevisvei/otzaria-zim-plugin",

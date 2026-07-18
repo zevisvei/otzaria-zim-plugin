@@ -223,6 +223,23 @@
   }
   var _td = new TextDecoder('utf-8');
 
+  // Read one dirent straight from raw bytes, given the position of the URL
+  // pointer table and an index into it. Shared by the metadata reader (_nm)
+  // and the main-page resolver (_mp).
+  async function _de(o, urlPtrPos, idx) {
+    var pb = await _rw(o, urlPtrPos + idx * 8, urlPtrPos + idx * 8 + 7);
+    var off = _u64(new DataView(pb.buffer, pb.byteOffset, 8), 0);
+    var eb = await _rw(o, off, off + 1023);
+    var edv = new DataView(eb.buffer, eb.byteOffset, eb.byteLength);
+    var mt = edv.getUint16(0, true);
+    var ns = String.fromCharCode(eb[3]);
+    var p = 8, cl = null, bl = null, redTo = null, red = (mt === 0xffff);
+    if (red) { redTo = edv.getUint32(p, true); p += 4; } else { cl = edv.getUint32(p, true); bl = edv.getUint32(p + 4, true); p += 8; }
+    var e = p;
+    while (e < eb.length && eb[e] !== 0) e++;
+    return { ns: ns, url: _td.decode(eb.subarray(p, e)), cl: cl, bl: bl, red: red, redTo: redTo };
+  }
+
   // Read the ZIM "Name" metadata straight from raw bytes (no libzim needed).
   // Metadata lives in the 'M' namespace; openZIM keeps it in an uncompressed
   // cluster, so we only support uncompressed clusters here (else -> null).
@@ -233,20 +250,7 @@
     var entryCount = hd.getUint32(24, true);
     var urlPtrPos = _u64(hd, 32);
     var clusterPtrPos = _u64(hd, 48);
-
-    async function de(idx) {
-      var pb = await _rw(o, urlPtrPos + idx * 8, urlPtrPos + idx * 8 + 7);
-      var off = _u64(new DataView(pb.buffer, pb.byteOffset, 8), 0);
-      var eb = await _rw(o, off, off + 1023);
-      var edv = new DataView(eb.buffer, eb.byteOffset, eb.byteLength);
-      var mt = edv.getUint16(0, true);
-      var ns = String.fromCharCode(eb[3]);
-      var p = 8, cl = null, bl = null, red = (mt === 0xffff);
-      if (red) { p += 4; } else { cl = edv.getUint32(p, true); bl = edv.getUint32(p + 4, true); p += 8; }
-      var e = p;
-      while (e < eb.length && eb[e] !== 0) e++;
-      return { ns: ns, url: _td.decode(eb.subarray(p, e)), cl: cl, bl: bl, red: red };
-    }
+    function de(idx) { return _de(o, urlPtrPos, idx); }
 
     var lo = 0, hi = entryCount, mid, d;
     while (lo < hi) { mid = (lo + hi) >> 1; d = await de(mid); if (d.ns < 'M') lo = mid + 1; else hi = mid; }
@@ -273,6 +277,27 @@
       i++;
     }
     return null;
+  }
+
+  // Resolve the archive's declared main page straight from the ZIM header
+  // (offset 64 = uint32 index into the URL pointer list; 0xFFFFFFFF = none).
+  // Needed because that entry is often an old-style 'W' namespace alias
+  // (e.g. "W/mainPage") which getEntryByPath cannot look up by name at all —
+  // only the header's direct index reaches it. We follow any redirect chain
+  // ourselves and return the final content dirent, whose bare url IS
+  // reachable via getEntryByPath.
+  async function _mp(o) {
+    var hb = await _rw(o, 0, 79);
+    var hd = new DataView(hb.buffer, hb.byteOffset, hb.byteLength);
+    if (hd.getUint32(0, true) !== 0x044d495a) return null;
+    var urlPtrPos = _u64(hd, 32);
+    var mainIdx = hd.getUint32(64, true);
+    if (mainIdx === 0xffffffff) return null;
+    var d = await _de(o, urlPtrPos, mainIdx);
+    var hops = 0;
+    while (d && d.red && hops++ < 5) { d = await _de(o, urlPtrPos, d.redTo); }
+    if (!d || d.red) return null;
+    return { ns: d.ns, url: d.url };
   }
 
   async function _gk(o) {
@@ -322,6 +347,7 @@
   let worker = null;
   let workerReady = false;
   let currentArchiveName = null;
+  let currentArchiveObj = null;        // {file|url,size} of the loaded archive — for raw header reads (e.g. _mp)
   let currentArticlePath = null;       // path of the article currently shown
   const blobCache = new Map();         // path -> blob URL  (cleared on archive change)
   let suggestSeq = 0;                  // for racing suggest requests
@@ -630,6 +656,7 @@
       }
 
       // Remember which archive is active, then reopen its last-read article.
+      currentArchiveObj = opts;
       activeToken = opts.token || null;
       Otz.call('storage.set', { key: 'lastArchiveName', value: displayName }).catch(() => {});
       if (activeToken) Otz.call('storage.set', { key: ACTIVE_KEY, value: activeToken }).catch(() => {});
@@ -709,6 +736,7 @@
     blobCache.clear();
     currentArticlePath = null;
     currentArchiveName = null;
+    currentArchiveObj = null;
     activeToken = null;
     try { els.iframe.srcdoc = ''; } catch (_) {}
     els.iframe.style.display = 'none';
@@ -846,6 +874,17 @@
       'A/mainPage', 'A/index', 'A/index.html',
       'A/Main_Page', 'A/Welcome', 'home'
     ];
+    // The header's own main-page pointer is authoritative and often lands on
+    // a legacy 'W' namespace alias (e.g. "W/mainPage") that getEntryByPath
+    // cannot find by name at all — only reading the header directly reaches
+    // it. Resolve it (following redirects) and try its real target first,
+    // since the fixed guesses above miss custom-built archives entirely.
+    if (currentArchiveObj) {
+      try {
+        const mp = await _mp(currentArchiveObj);
+        if (mp) candidates.unshift(mp.url, mp.ns + '/' + mp.url);
+      } catch (_) { /* unsupported/failed → rely on the guesses */ }
+    }
     for (const path of candidates) {
       try {
         const resp = await workerCall({ action: 'getEntryByPath', path: path, follow: true });
@@ -1188,7 +1227,12 @@
     try {
       const u = new URL(href, 'http://zim.local/' + (basePath || ''));
       if (u.host !== 'zim.local') return null; // external
-      let p = decodeURI(u.pathname.replace(/^\//, ''));
+      // decodeURI leaves reserved characters (":", "/", "?", …) percent-encoded,
+      // so any title containing one (e.g. MediaWiki namespaces like "פרשני:…")
+      // would stay as "%3A" and fail to match the archive's real dirent path.
+      // decodeURIComponent decodes everything — correct here since the whole
+      // string is one flat archive path, not a structured URI.
+      let p = decodeURIComponent(u.pathname.replace(/^\//, ''));
       return p;
     } catch (_) {
       return null;
@@ -1482,14 +1526,23 @@
     // <a> — keep href but mark as zim-internal so we can intercept
     doc.querySelectorAll('a[href]').forEach((el) => {
       const href = el.getAttribute('href');
-      if (!href || /^(https?:|mailto:|tel:|javascript:)/i.test(href)) {
-        el.setAttribute('target', '_blank'); // external — let browser handle (will be blocked by sandbox; still better than nothing)
+      if (!href) return;
+      if (href.startsWith('#')) return; // hash-only link → leave alone for in-page nav
+      if (/^(mailto:|tel:|javascript:)/i.test(href)) {
+        // Non-navigable-in-archive schemes — block; no target="_blank" (that
+        // used to trigger a host-level "open new window" flow that crashed
+        // the plugin). Leave the href as-is (hovering still shows it) and
+        // just mark it; the click handler below blocks the click.
+        el.setAttribute('data-zim-external', '1');
         return;
       }
-      // hash-only link → leave alone for in-page nav
-      if (href.startsWith('#')) return;
       const resolved = resolvePath(href, path);
-      if (!resolved) return;
+      if (!resolved) {
+        // Doesn't resolve to a path inside this archive — an external site
+        // (http/https, protocol-relative, or a bare domain). Block the same way.
+        el.setAttribute('data-zim-external', '1');
+        return;
+      }
       el.setAttribute('data-zim-path', resolved);
       el.setAttribute('href', '#');
     });
@@ -1511,6 +1564,11 @@
           let target = ev.target;
           while (target && target !== idoc.documentElement && target.tagName !== 'A') target = target.parentNode;
           if (target && target.tagName === 'A') {
+            if (target.hasAttribute('data-zim-external')) {
+              ev.preventDefault();
+              notifyError('קישור זה מפנה לאתר חיצוני ואינו נגיש מתוך התוסף.');
+              return;
+            }
             const zp = target.getAttribute('data-zim-path');
             if (zp) {
               ev.preventDefault();
