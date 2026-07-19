@@ -1,0 +1,119 @@
+name: Update Otzaria Wiki ZIM
+
+# Rebuilds otzaria_wiki.zim from the live Otzaria/otzaria wiki whenever it
+# has changed, re-approves the fresh file on the plugin's allowlist (by
+# exact fingerprint — see tools/update_allowlist.py), and pushes a new
+# tag so the existing release.yml builds and publishes the plugin update
+# automatically. No manual step needed for routine wiki edits.
+
+on:
+  schedule:
+    - cron: '0 3 */3 * *'   # every 3 days at 03:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update-wiki-zim:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout plugin repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clone the live wiki
+        run: git clone --depth 50 https://github.com/Otzaria/otzaria/wiki.git otzaria.wiki
+
+      - name: Check for changes since the last run
+        id: check
+        run: |
+          NEW_SHA=$(git -C otzaria.wiki rev-parse HEAD)
+          echo "new_sha=$NEW_SHA" >> "$GITHUB_OUTPUT"
+          LAST_SHA=$(cat .wiki-last-sha 2>/dev/null || true)
+          if [ "$NEW_SHA" = "$LAST_SHA" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Wiki unchanged since last run ($NEW_SHA) — nothing to do."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Wiki changed: $LAST_SHA -> $NEW_SHA"
+          fi
+
+      - name: Set up Python
+        if: steps.check.outputs.changed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build dependencies
+        if: steps.check.outputs.changed == 'true'
+        run: pip install libzim markdown
+
+      - name: Build otzaria_wiki.zim
+        if: steps.check.outputs.changed == 'true'
+        run: python tools/build_wiki_zim.py --wiki-dir otzaria.wiki --output otzaria_wiki.zim
+
+      - name: Update the allowlist fingerprint
+        if: steps.check.outputs.changed == 'true'
+        env:
+          ZIM_ALLOWLIST_SALT: ${{ secrets.ZIM_ALLOWLIST_SALT }}
+        run: python tools/update_allowlist.py --zim otzaria_wiki.zim --app-js js/app.js
+
+      - name: Bump the patch version
+        if: steps.check.outputs.changed == 'true'
+        id: bump
+        run: |
+          python - <<'PY'
+          import json
+          path = 'manifest.json'
+          with open(path, encoding='utf-8') as f:
+              m = json.load(f)
+          major, minor, patch = (int(x) for x in m['version'].split('.'))
+          m['version'] = '%d.%d.%d' % (major, minor, patch + 1)
+          with open(path, 'w', encoding='utf-8') as f:
+              json.dump(m, f, ensure_ascii=False, indent=2)
+              f.write('\n')
+          print(m['version'])
+          PY
+          echo "new_version=$(python -c "import json;print(json.load(open('manifest.json'))['version'])")" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, tag, and push
+        if: steps.check.outputs.changed == 'true'
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          NEW_SHA: ${{ steps.check.outputs.new_sha }}
+        run: |
+          git config user.name "otzaria-wiki-bot"
+          git config user.email "actions@users.noreply.github.com"
+          echo "$NEW_SHA" > .wiki-last-sha
+          git add js/app.js manifest.json .wiki-last-sha
+          git commit -m "wiki auto-update: rebuild otzaria_wiki.zim from Otzaria/otzaria wiki @ ${NEW_SHA:0:7}"
+          git tag "v$NEW_VERSION"
+          git push origin main
+          git push origin "v$NEW_VERSION"
+
+      - name: Wait for the plugin release to be published
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          for i in $(seq 1 30); do
+            if gh release view "v$NEW_VERSION" >/dev/null 2>&1; then
+              echo "Release v$NEW_VERSION is up."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::Release v$NEW_VERSION never appeared within 5 minutes — the plugin was still tagged/pushed, but attaching the ZIM asset below will be skipped."
+
+      - name: Attach the new ZIM as a release asset
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          if gh release view "v$NEW_VERSION" >/dev/null 2>&1; then
+            gh release upload "v$NEW_VERSION" otzaria_wiki.zim --clobber
+          fi
