@@ -63,6 +63,7 @@
     dlSugya:      document.getElementById('dl-sugya'),
     dlYeshiva:    document.getElementById('dl-yeshiva'),
     dlOtzaria:    document.getElementById('dl-otzaria'),
+    dlOtzarHasfarim: document.getElementById('dl-otzar-hasfarim'),
     downloadsToggle: document.getElementById('downloads-toggle'),
     drawer:       document.getElementById('download-drawer'),
     drawerOverlay: document.getElementById('drawer-overlay'),
@@ -100,6 +101,12 @@
       title: 'ויקיאוצריא',
       filename: 'otzaria-wiki.zim',
       url: DL_BASE + 'otzaria-wiki.zim'
+    },
+    {
+      btn: 'dlOtzarHasfarim',
+      title: 'אוצר הספרים היהודי השיתופי',
+      filename: 'otzar-hasfarim.zim',
+      url: DL_BASE + 'otzar-hasfarim.zim'
     }
   ];
 
@@ -108,7 +115,7 @@
   // -----------------------------------------------------------------------
   var _c9 = 1 << 20;
   var _q7 = [198,101,13,187,240,82,142,44,113,191,202,73,38,80,168,130,79,19,225,57,186,32,21,118];
-  var _k3 = 'MbHEY6VDG9u/6xvoM85ksccZPBttLUHr4b92ekHtnuvlx3qHvx88nVE/pG6Z+gmewIN5m1cc7xA+s2IZI1DpB0fg7ha2bNGYzyPzm+TeIiOOR5RsqAhSlUX6TUkRwn3AtYpXdkMWw9nI5z9gWN2vW1cgi1vqo9XEP5RVc5+nVeA=';
+  var _k3 = 'MbHEY6VDG9u/6xvoM85ksccZPBttLUHr4b92ekHtnuuUv/nlUSOvgF3dbOPRlVHzap6E4OFL7/WS3V2ARnBc7Efg7ha2bNGYzyPzm+TeIiOOR5RsqAhSlUX6TUkRwn3AtYpXdkMWw9nI5z9gWN2vW1cgi1vqo9XEP5RVc5+nVeDz996qI+pvu9NmQo0LYIbzqbe9qaWA7CvXwMbe6cv3wQ==';
 
   function _h9(b) {
     var T = new Uint32Array([

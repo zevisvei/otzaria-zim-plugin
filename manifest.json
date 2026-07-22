@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.otzaria.zim-reader",
   "name": "קורא ZIM",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "קורא קבצי ZIM (Kiwix) לאוצריא — טעינה מהירה, ריבוי ארכיונים, חיפוש חכם בעברית וניווט. מבוסס libzim.",
   "author": "האדם החושב · rework: יאיר דניאל",
   "homepage": "https://github.com/zevisvei/otzaria-zim-plugin",
@@ -26,6 +26,7 @@
       "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/wikisugya.zim",
       "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/wikishiva.zim",
       "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/otzaria-wiki.zim",
+      "https://github.com/YairDaniel11/otzaria-zim-plugin/releases/download/v0.5.0/otzar-hasfarim.zim",
       "https://objects.githubusercontent.com/"
     ]
   },
