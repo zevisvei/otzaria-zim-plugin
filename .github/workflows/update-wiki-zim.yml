@@ -93,6 +93,17 @@ jobs:
           git push origin main
           git push origin "v$NEW_VERSION"
 
+      - name: Trigger the plugin release build
+        # A push made with the default GITHUB_TOKEN never triggers other
+        # workflows (GitHub's anti-recursion rule), so the tag pushed above
+        # would otherwise never reach release.yml's `on: push: tags:` trigger.
+        # Dispatch it explicitly instead.
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: gh workflow run release.yml --ref main -f tag="v$NEW_VERSION"
+
       - name: Wait for the plugin release to be published
         if: steps.check.outputs.changed == 'true'
         env:
