@@ -1,21 +1,27 @@
-name: Update Otzaria Wiki ZIM
+name: Update Milon Klei Kodesh ZIM
 
-# Rebuilds otzaria_wiki.zim from the live Otzaria/otzaria wiki whenever it
-# has changed, re-approves the fresh file on the plugin's allowlist (by
-# exact fingerprint — see tools/update_allowlist.py), and pushes a new
-# tag so the existing release.yml builds and publishes the plugin update
-# automatically. No manual step needed for routine wiki edits.
+# Rebuilds milon-klei-kodesh.zim from the live KleiKodeshProject Dictionary.db
+# whenever it changes, re-approves the fresh file on the plugin's allowlist
+# (by exact fingerprint — see tools/update_allowlist.py), uploads it to the
+# downloads release (YairDaniel11/otzaria-zim-plugin, tag v0.5.0), and pushes
+# a new tag so release.yml builds and publishes the plugin update.
 
 on:
   schedule:
-    - cron: '0 3 */3 * *'   # every 3 days at 03:00 UTC
+    - cron: '30 3 */3 * *'   # every 3 days at 03:30 UTC (offset from the wiki job)
   workflow_dispatch: {}
 
 permissions:
   contents: write
 
+env:
+  SOURCE_REPO: KleiKodesh/KleiKodeshProject
+  SOURCE_PATH: KitveiHakodesh/CSharpBackend/KitveiHakodeshService/Dictionary/Dictionary.db
+  DOWNLOADS_REPO: YairDaniel11/otzaria-zim-plugin
+  DOWNLOADS_TAG: v0.5.0
+
 jobs:
-  update-wiki-zim:
+  update-milon-zim:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout plugin repo
@@ -23,21 +29,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Clone the live wiki
-        run: git clone --depth 50 https://github.com/Otzaria/otzaria.wiki.git otzaria.wiki
+      - name: Fetch the live Dictionary.db
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/$SOURCE_REPO/contents/$SOURCE_PATH" --jq '.sha' > .db-sha-new
+          curl -sL -o Dictionary.db "https://raw.githubusercontent.com/$SOURCE_REPO/master/$SOURCE_PATH"
 
       - name: Check for changes since the last run
         id: check
         run: |
-          NEW_SHA=$(git -C otzaria.wiki rev-parse HEAD)
-          echo "new_sha=$NEW_SHA" >> "$GITHUB_OUTPUT"
-          LAST_SHA=$(cat .wiki-last-sha 2>/dev/null || true)
+          NEW_SHA=$(cat .db-sha-new)
+          LAST_SHA=$(cat .milon-last-sha 2>/dev/null || true)
           if [ "$NEW_SHA" = "$LAST_SHA" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Wiki unchanged since last run ($NEW_SHA) — nothing to do."
+            echo "Dictionary.db unchanged since last run ($NEW_SHA) — nothing to do."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Wiki changed: $LAST_SHA -> $NEW_SHA"
+            echo "Dictionary.db changed: $LAST_SHA -> $NEW_SHA"
           fi
 
       - name: Set up Python
@@ -48,17 +57,26 @@ jobs:
 
       - name: Install build dependencies
         if: steps.check.outputs.changed == 'true'
-        run: pip install libzim markdown
+        run: pip install libzim
 
-      - name: Build otzaria_wiki.zim
+      - name: Build milon-klei-kodesh.zim
         if: steps.check.outputs.changed == 'true'
-        run: python tools/build_wiki_zim.py --wiki-dir otzaria.wiki --output otzaria_wiki.zim
+        run: python tools/build_milon_zim.py --db Dictionary.db --output milon-klei-kodesh.zim
 
       - name: Update the allowlist fingerprint
         if: steps.check.outputs.changed == 'true'
         env:
           ZIM_ALLOWLIST_SALT: ${{ secrets.ZIM_ALLOWLIST_SALT }}
-        run: python tools/update_allowlist.py --zim otzaria_wiki.zim --app-js js/app.js --entries-key otzaria_wiki
+        run: python tools/update_allowlist.py --zim milon-klei-kodesh.zim --app-js js/app.js --entries-key milon
+
+      - name: Upload the new ZIM to the downloads release
+        # The downloads release lives in a different repo (the personal fork
+        # used to host large ZIM downloads), so the in-repo GITHUB_TOKEN can't
+        # reach it — needs a PAT with access to that repo instead.
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DOWNLOADS_REPO_TOKEN }}
+        run: gh release upload "$DOWNLOADS_TAG" milon-klei-kodesh.zim --repo "$DOWNLOADS_REPO" --clobber
 
       - name: Bump the patch version
         if: steps.check.outputs.changed == 'true'
@@ -82,13 +100,12 @@ jobs:
         if: steps.check.outputs.changed == 'true'
         env:
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-          NEW_SHA: ${{ steps.check.outputs.new_sha }}
         run: |
-          git config user.name "otzaria-wiki-bot"
+          git config user.name "otzaria-milon-bot"
           git config user.email "actions@users.noreply.github.com"
-          echo "$NEW_SHA" > .wiki-last-sha
-          git add js/app.js manifest.json tools/zim-allowlist-entries.json .wiki-last-sha
-          git commit -m "wiki auto-update: rebuild otzaria_wiki.zim from Otzaria/otzaria wiki @ ${NEW_SHA:0:7}"
+          cp .db-sha-new .milon-last-sha
+          git add js/app.js manifest.json tools/zim-allowlist-entries.json .milon-last-sha
+          git commit -m "milon auto-update: rebuild milon-klei-kodesh.zim from KleiKodeshProject Dictionary.db"
           git tag "v$NEW_VERSION"
           git push origin main
           git push origin "v$NEW_VERSION"
@@ -103,28 +120,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
         run: gh workflow run release.yml --ref main -f tag="v$NEW_VERSION"
-
-      - name: Wait for the plugin release to be published
-        if: steps.check.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-        run: |
-          for i in $(seq 1 30); do
-            if gh release view "v$NEW_VERSION" >/dev/null 2>&1; then
-              echo "Release v$NEW_VERSION is up."
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "::warning::Release v$NEW_VERSION never appeared within 5 minutes — the plugin was still tagged/pushed, but attaching the ZIM asset below will be skipped."
-
-      - name: Attach the new ZIM as a release asset
-        if: steps.check.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-        run: |
-          if gh release view "v$NEW_VERSION" >/dev/null 2>&1; then
-            gh release upload "v$NEW_VERSION" otzaria_wiki.zim --clobber
-          fi

@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """
-Recompute the plugin's ZIM allowlist blob (_k3 in js/app.js) after a fresh
-otzaria_wiki.zim build.
+Recompute the plugin's ZIM allowlist blob (_k3 in js/app.js) after rebuilding
+one of the approved archives.
 
 The allowlist is a set-membership test: js/app.js hashes SHA256(salt || s)
-for a candidate string s (either a whole-file fingerprint, or a ZIM "Name"
-metadata value) and checks whether that 32-byte digest appears anywhere in
-the base64-packed _k3 blob. This script rebuilds that blob from scratch
-each run: one entry per fixed fingerprint in zim-allowlist-entries.json,
-plus a freshly computed fingerprint for the newly built otzaria_wiki.zim
-(so a wiki rebuild is auto-approved without weakening the other files'
-exact-fingerprint pinning).
+for a candidate string s (a whole-file fingerprint) and checks whether that
+32-byte digest appears anywhere in the base64-packed _k3 blob. This script
+updates one named entry in zim-allowlist-entries.json (keyed by archive,
+e.g. "milon", "otzaria_wiki") to a freshly computed fingerprint, then
+rebuilds the full _k3 blob from every entry in that file — so each archive
+stays pinned to its own exact, individually-approved fingerprint.
 
 Requires the ZIM_ALLOWLIST_SALT env var (hex-encoded).
 
 Usage:
-  python update_allowlist.py --zim otzaria_wiki.zim --app-js js/app.js
+  python update_allowlist.py --zim otzaria_wiki.zim --app-js js/app.js --entries-key otzaria_wiki
 """
 import argparse
 import base64
@@ -51,8 +50,9 @@ def stored_bytes(salt_hex, entry):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--zim', required=True, help='Path to the freshly built otzaria_wiki.zim')
+    ap.add_argument('--zim', required=True, help='Path to the freshly built .zim')
     ap.add_argument('--app-js', required=True, help='Path to js/app.js to patch in place')
+    ap.add_argument('--entries-key', required=True, help='Which entry in zim-allowlist-entries.json to update')
     args = ap.parse_args()
 
     salt_hex = os.environ.get('ZIM_ALLOWLIST_SALT')
@@ -61,13 +61,17 @@ def main():
         sys.exit(1)
 
     with open(ENTRIES_JSON, encoding='utf-8') as fh:
-        fixed_entries = json.load(fh)['fixed']
+        entries = json.load(fh)
 
     new_fp = fingerprint(args.zim)
-    print('otzaria_wiki.zim fingerprint: %s' % new_fp)
+    print('%s fingerprint: %s' % (args.zim, new_fp))
+    entries[args.entries_key] = new_fp
 
-    all_entries = fixed_entries + [new_fp]
-    blob = b''.join(stored_bytes(salt_hex, e) for e in all_entries)
+    with open(ENTRIES_JSON, 'w', encoding='utf-8') as fh:
+        json.dump(entries, fh, ensure_ascii=False, indent=2)
+        fh.write('\n')
+
+    blob = b''.join(stored_bytes(salt_hex, e) for e in entries.values())
     packed = base64.b64encode(blob).decode('ascii')
 
     with open(args.app_js, encoding='utf-8') as fh:
@@ -79,7 +83,7 @@ def main():
     with open(args.app_js, 'w', encoding='utf-8') as fh:
         fh.write(new_src)
 
-    print('Updated _k3 in %s (%d entries)' % (args.app_js, len(all_entries)))
+    print('Updated _k3 in %s (%d entries)' % (args.app_js, len(entries)))
 
 
 if __name__ == '__main__':
