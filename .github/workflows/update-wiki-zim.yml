@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Clone the live wiki
-        run: git clone --depth 50 https://github.com/Otzaria/otzaria/wiki.git otzaria.wiki
+        run: git clone --depth 50 https://github.com/Otzaria/otzaria.wiki.git otzaria.wiki
 
       - name: Check for changes since the last run
         id: check
