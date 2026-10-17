@@ -167,6 +167,11 @@ jobs:
           }
 
           # 5) Build multipart and PUT the update
+          # stability ו-homepage מה-manifest (כשחסרים — מה שבאתר)
+          $manifest = Get-Content manifest.json -Raw -Encoding UTF8 | ConvertFrom-Json
+          $status   = if ($manifest.stability) { $manifest.stability } else { $current.status }
+          $homepage = if ($manifest.homepage) { $manifest.homepage } elseif ($current.homepage) { $current.homepage } else { '' }
+
           $tagsJson = ConvertTo-Json -InputObject @($current.tags) -Compress
           if ($tagsJson -eq 'null') { $tagsJson = '[]' }
 
@@ -175,12 +180,12 @@ jobs:
             shortDescription = $current.shortDescription
             description      = $current.description
             version          = $env:NEW_VERSION
-            status           = $current.status
+            status           = $status
             author           = $current.author
             compatibleWith   = $current.compatibleWith
             requiresNetwork  = if ($current.requiresNetwork) { 'true' } else { 'false' }
             tags             = $tagsJson
-            homepage         = if ($current.homepage) { $current.homepage } else { '' }
+            homepage         = $homepage
             pluginFile       = Get-Item -Path $env:PLUGIN_FILE
           }
 
