@@ -16,7 +16,7 @@ permissions:
 
 env:
   SOURCE_REPO: KleiKodesh/KleiKodeshProject
-  SOURCE_PATH: KitveiHakodesh/CSharpBackend/KitveiHakodeshService/Dictionary/Dictionary.db
+  SOURCE_PATH: KitveiHakodesh/CSharpBackend/KitveiHakodesh.Core/Dictionary/Dictionary.db
   DOWNLOADS_REPO: YairDaniel11/otzaria-zim-plugin
   DOWNLOADS_TAG: v0.5.0
 
