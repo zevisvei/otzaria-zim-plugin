@@ -60,6 +60,7 @@ body {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   height: 100vh;
+  height: 100dvh;
   position: relative;
 }
 
@@ -589,4 +590,102 @@ footer.status {
   opacity: 0.85;
   font-weight: 400;
   direction: ltr;
+}
+
+/* ===================== Android / small-screen adaptation ===================== */
+html, body { max-width: 100%; overflow-x: hidden; }
+@supports (padding: env(safe-area-inset-top)) {
+  header { padding-top: calc(8px + env(safe-area-inset-top)); padding-inline: calc(14px + env(safe-area-inset-left)) calc(14px + env(safe-area-inset-right)); }
+  footer.status { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+}
+.dropdown-menu { max-width: calc(100vw - 16px); }
+.dropdown-menu { max-height: 70dvh; overflow-y: auto; }
+
+@media (max-width: 600px) {
+  header .title { font-size: 1.15rem; }
+  .toolbar { padding: 8px 10px; gap: 6px; }
+  .toolbar input[type="search"],
+  .toolbar input[type="search"].search-box-lg { min-width: 0; flex: 1 1 100%; order: -1; padding: 11px 18px; }
+  .archive-select { max-width: 100%; flex: 1 1 120px; min-width: 0; }
+  .match-nav { inset-inline: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .match-nav .match-input { width: auto; flex: 1; min-width: 0; }
+  .empty-state { padding: 20px; }
+  .download-drawer { width: 320px; max-width: 90vw; }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  header { padding-block: 4px; }
+  .toolbar { padding-block: 6px; }
+  #toc-list { max-height: 30dvh; }
+}
+
+/* Touch devices: 44px targets, 16px+ inputs (prevents focus zoom), tap alternatives */
+@media (pointer: coarse) {
+  button, .btn, .archive-select, .suggestion, .toc-item, .toc-subhead, .dropdown-item, .drawer-dl-btn, .sidebar-mini {
+    min-height: 44px;
+  }
+  .icon-btn, .drawer-close { min-width: 44px; }
+  .sidebar-mini { padding: 8px 14px; }
+  .match-nav button { width: 44px; height: 44px; min-height: 44px; }
+  .toolbar input[type="search"], .toolbar input[type="search"].search-box-lg,
+  .match-nav .match-input, .archive-select, input, select, textarea { font-size: 16px; min-height: 44px; }
+  .toc-item { display: flex; align-items: center; }
+  .dropdown-row .icon-btn { padding: 8px 12px; }
+}
+@media (hover: none) {
+  button:hover, .btn:hover { filter: none; }
+  .suggestion:hover, .toc-item:hover { background: inherit; border-color: var(--color-outline); color: inherit; }
+  .toc-item:hover { background: transparent; border-inline-start-color: transparent; }
+  .suggestion:active, .toc-item:active, .dropdown-item:active { background: var(--color-primary-subtle); }
+  button.secondary:hover { background: transparent; }
+}
+
+/* ===== Compact phone layout: keep most of the screen for reading =====
+   Placed last so it wins over the generic touch-target rules above. */
+@media (max-width: 600px) {
+  header { padding-block: 3px; gap: 8px; }
+  @supports (padding: env(safe-area-inset-top)) {
+    header { padding-top: calc(3px + env(safe-area-inset-top)); }
+  }
+  header .title { font-size: 0.95rem; font-weight: 700; }
+  header .header-open { padding: 3px 10px; font-size: 0.8rem; min-height: 30px; }
+
+  /* Row 1: [archive select] + search box.  Row 2: all actions as 34px icons. */
+  .toolbar { padding: 4px 6px; gap: 4px; }
+  .toolbar input[type="search"],
+  .toolbar input[type="search"].search-box-lg {
+    order: -2; flex: 1 1 0; min-width: 0; padding: 5px 14px; font-size: 16px; min-height: 36px;
+  }
+  .archive-select { order: -3; min-height: 36px; padding: 4px 8px; flex: 0 1 38%; min-width: 0; }
+  /* The search box + select share row 1; a forced break puts the icons on row 2. */
+  .toolbar::before { content: ""; order: -1; flex-basis: 100%; height: 0; }
+
+  .toolbar button, .toolbar .icon-btn, .toolbar .btn-icon-label {
+    min-height: 34px; width: 34px; min-width: 34px; height: 34px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  /* Icon-only secondary actions (the text labels were what filled the screen). */
+  .btn-icon-label { font-size: 0; gap: 0; }
+  .btn-icon-label svg { width: 18px; height: 18px; }
+  /* Bookmark button text is set by JS ("☆ הוסף למועדפים"): show just the star. */
+  #bookmark-toggle { font-size: 0; }
+  #bookmark-toggle::before { content: "\2606"; font-size: 1.1rem; }
+  #bookmark-toggle.active::before { content: "\2605"; }
+  .menu-wrap { flex: 0 0 auto; }
+
+  footer.status { padding-block: 3px; font-size: 0.78rem; }
+}
+
+/* Short landscape phone: a single scrolling toolbar row, thin header. */
+@media (max-height: 480px) and (orientation: landscape) {
+  header { padding-block: 2px; }
+  header .title { font-size: 0.95rem; }
+  header .header-open { min-height: 30px; padding: 3px 10px; }
+  .toolbar { flex-wrap: nowrap; overflow-x: auto; padding-block: 3px; }
+  .toolbar > * { flex: 0 0 auto; }
+  .toolbar input[type="search"],
+  .toolbar input[type="search"].search-box-lg { min-width: 160px; flex: 1 0 160px; order: 0; min-height: 34px; padding-block: 4px; }
+  .toolbar button { min-height: 34px; }
+  .btn-icon-label { font-size: 0; gap: 0; padding: 4px 10px; }
+  .btn-icon-label svg { width: 18px; height: 18px; }
 }
