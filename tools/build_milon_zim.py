@@ -181,6 +181,15 @@ class HtmlPage(Item):
         return {Hint.FRONT_ARTICLE: True}
 
 
+
+def add_illustration_compat(creator, size, data):
+    """libzim >= 4 takes (content, width); older versions took (size, content)."""
+    try:
+        creator.add_illustration(data, size)
+    except TypeError:
+        creator.add_illustration(size, data)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--db', required=True, help='Path to Dictionary.db')
@@ -221,7 +230,7 @@ def main():
         creator.add_item(HtmlPage(MAIN_PAGE, 'מילון', build_index_html(len(headwords), logo_b64, build_date)))
 
         with open(ICON_48, 'rb') as fh:
-            creator.add_illustration(48, fh.read())
+            add_illustration_compat(creator, 48, fh.read())
 
         creator.add_metadata('Name', ZIM_NAME)
         creator.add_metadata('Title', 'מילון')

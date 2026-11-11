@@ -161,6 +161,15 @@ class BinaryAsset(Item):
         return {}
 
 
+
+def add_illustration_compat(creator, size, data):
+    """libzim >= 4 takes (content, width); older versions took (size, content)."""
+    try:
+        creator.add_illustration(data, size)
+    except TypeError:
+        creator.add_illustration(size, data)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--wiki-dir', required=True, help='Path to a checkout of otzaria.wiki.git')
@@ -204,9 +213,9 @@ def main():
             creator.add_item(BinaryAsset('style.css', 'text/css', fh.read()))
 
         with open(ICON_48, 'rb') as fh:
-            creator.add_illustration(48, fh.read())
+            add_illustration_compat(creator, 48, fh.read())
         with open(ICON_96, 'rb') as fh:
-            creator.add_illustration(96, fh.read())
+            add_illustration_compat(creator, 96, fh.read())
 
         creator.add_metadata('Name', ZIM_NAME)
         creator.add_metadata('Title', 'ויקי אוצריא')
