@@ -628,7 +628,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .sidebar-mini { padding: 8px 14px; }
   .match-nav button { width: 44px; height: 44px; min-height: 44px; }
   .toolbar input[type="search"], .toolbar input[type="search"].search-box-lg,
-  .match-nav .match-input, .archive-select, input, select, textarea { font-size: 16px; min-height: 44px; }
+  .match-nav .match-input, .archive-select, input, select, textarea { font-size: 1rem; min-height: 44px; }
   .toc-item { display: flex; align-items: center; }
   .dropdown-row .icon-btn { padding: 8px 12px; }
 }
@@ -654,7 +654,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .toolbar { padding: 4px 6px; gap: 4px; }
   .toolbar input[type="search"],
   .toolbar input[type="search"].search-box-lg {
-    order: -2; flex: 1 1 0; min-width: 0; padding: 5px 14px; font-size: 16px; min-height: 36px;
+    order: -2; flex: 1 1 0; min-width: 0; padding: 5px 14px; font-size: 1rem; min-height: 36px;
   }
   .archive-select { order: -3; min-height: 36px; padding: 4px 8px; flex: 0 1 38%; min-width: 0; }
   /* The search box + select share row 1; a forced break puts the icons on row 2. */
